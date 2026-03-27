@@ -11,12 +11,9 @@
 {-# OPTIONS_GHC -fwarn-unused-matches #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Use isAsciiUpper" #-}
+{-# HLINT ignore "Eta reduce" #-}
 import Data.Char (ord, chr)
 import Data.Maybe (mapMaybe)
-import Text.ParserCombinators.ReadP (get)
-import GHC.ConsoleHandler (installHandler)
-
--- Въпроси?
 
 mergesort :: [Int] -> [Int]
 mergesort [] = []
@@ -52,6 +49,7 @@ superWeakDecode (x : xs) =
         replicate n (chr (ord x - n)) ++ superWeakDecode (tail xs)
     where n = read [head xs]
 
+
 -- Задача 1: Да се дефинира типа Maybe
 data MyMaybe = MyJust Int | MyNothing
     deriving Show
@@ -61,6 +59,9 @@ safeHead :: [Int] -> MyMaybe
 safeHead [] = MyNothing
 safeHead (x : _) = MyJust x
 
+-- Задача 1.2: Да се напише функцията mapMaybe
+
+-- С helper функция:
 myMapMaybe :: [Int] -> (Int -> Maybe Int) -> [Int]
 myMapMaybe [] _ = []
 myMapMaybe (x : xs) f = helper (f x)
@@ -69,35 +70,39 @@ myMapMaybe (x : xs) f = helper (f x)
         helper (Just y) = y : myMapMaybe xs f
         helper Nothing = myMapMaybe xs f
 
-    --case f x of 
-    --    Just y -> y : myMapMaybe xs f 
-    --    Nothing -> myMapMaybe xs f
-
--- Задача 1.2: Да се напише функцията mapMaybe 
+-- Без helper функция:
+myMapMaybe' :: [Int] -> (Int -> Maybe Int) -> [Int]
+myMapMaybe' [] _ = []
+myMapMaybe' (x : xs) f =
+    case f x of 
+        Just y -> y : myMapMaybe' xs f 
+        Nothing -> myMapMaybe' xs f
 
 -- Задача 2: Генерирайте всички цели положителни числа
 z :: [Int]
 z = [1 .. ]
 
--- Задача 2.1: Генерирайте всички цели четни числа
+-- Задача 2.1: Генерирайте всички цели четни положителни числа
 zEven :: [Int]
 zEven = [x | x <- [1..], even x]
--- Задача 2.2: Генерирайте всички цели четни числа по-големи от подадено n
+
+-- Задача 2.2: Генерирайте всички цели четни положителни числа по-големи от подадено n
 zEvenBiggerThan :: Int -> [Int]
 zEvenBiggerThan n = [x | x <- [1..], even x, x > n]
 
+-- Задача 2.3: Генерирайте всички наредени двойки от числата от 1 до 5
 allPairs :: [(Int, Int)]
 allPairs = [(x, y) | x <- [1..5], y <- [1..5]]
 
--- Задача 3: Дефинирайте тип Potion. Той трябва да има: тип (Healing, Poison, Effect)
+-- Задача 3: Дефинирайте тип Potion. Той може да бъде: Healing, Poison или Effect
 -- За тази задача точки живот ще наричаме стойност от тип Int
--- Типовете се различават по следния начин: 
     -- Healing - увеличава точките живот с число
     -- Poison - намаля точките живот с число
     -- Effect - прилага функция върху точките живот
 
 data Potion = Healing Int | Poison Int | Effect (Int -> Int)
 
+-- Haskell magic - не гледайте
 instance Show Potion where 
     show :: Potion -> String 
     show (Healing x) = "Healing " ++ show x 
@@ -109,13 +114,13 @@ instance Show Potion where
 --точките живот.
     -- Ако точките живот ще паднат под 0 да върне Nothing
 type HP = Int
+
 apply :: Potion -> HP -> Maybe HP
 apply (Healing x) hp = Just (hp + x)
 apply (Poison x) hp = if hp >= x then Just (hp - x) else Nothing
 apply (Effect f) hp = if f hp >= 0 then Just (f hp) else Nothing
 
--- Задача 5: Да се напише функция, която комбинира 2 Potions. (т.е създава нов Potion, 
---който прилага ефектите им последователно)
+-- Задача 5: Да се напише функция, която комбинира 2 Potions. (т.е създава нов Potion, който прилага ефектите им последователно)
 combineTwo :: Potion -> Potion -> Potion
 combineTwo (Healing x) (Poison y) = Effect ((\a -> a - y) . (+x))
 combineTwo (Healing x) (Effect f) = Effect (f . (+x))
@@ -132,32 +137,44 @@ combinePotions :: [Potion] -> Potion
 combinePotions [] = error "error"
 combinePotions (x : xs) = foldl combineTwo x xs
 
+-- Рекурсивно
 combinePotionsRec :: [Potion] -> Potion
 combinePotionsRec [] = error "error"
 combinePotionsRec [x] = x
 combinePotionsRec (x : y : xs) = combinePotionsRec $ combineTwo x y : xs
 
--- Задача 7: Да се напише функция, която приема списък от Potion и списък от точки живот.
-    -- Прилага всички ефекти върху всички точки живот и връща само тези, които са по-големи от 0
+-- Задача 7: Да се напише функция, която приема списък от Potion и списък от точки живот. Прилага всички ефекти върху всички точки живот и връща само тези, които са по-големи от 0
 applyAll :: [Potion] -> [HP] -> [HP]
 applyAll ps hps = filter (>0) $ mapMaybe (apply (combinePotions ps)) hps
 
--- Задача 8: Да се напише функция, която приема списък от Potion и списък от точки живот, 
--- прилага функцията от задача 7 и връща 2рото най-голямо число.
+-- Задача 8: Да се напише функция, която приема списък от Potion и списък от точки живот. Прилага функцията от задача 7 и връща 2рото най-голямо число.
 getSecondHighest :: [Potion] -> [HP] -> HP
 getSecondHighest ps hps = reverse (mergesort $ applyAll ps hps) !! 1
 
--- Задача 9: Да се напише функция, която приема списък от Potion и връща списък от наредени двойки от 
---всички възможни комбинации на 2 от тях
+-- Задача 9: Да се напише функция, която приема списък от Potion и връща списък от наредени двойки от всички възможни комбинации на 2 от тях
 getAllPotionPairs :: [Potion] -> [(Potion, Potion)]
 getAllPotionPairs ps = [(x, y) | x <- ps, y <- ps]
 
 -- Задача 10: Да се дефинира тип за матрица от Potion (за следващите задачи наричаме типа просто матрица)
--- Задача 11: Да се напише функция, която приема матрица и връща елементите по главния диагонал
--- Задача 12: Да се напише функция, която приема две матрици и комбинира елементите на еднакви позиции
--- Задача 13: Да се напише функция, която приема матрица и връща един комбиниран Potion
--- Задача 14: Да се напише функция, която приема матрица и я транспонира
+type PotionMatrix = [[Potion]]
 
+-- Задача 11: Да се напише функция, която приема матрица и връща елементите по главния диагонал
+getDiagonal :: PotionMatrix -> [Potion]
+getDiagonal m = [ m !! x !! x | x <- [0 .. length m - 1]]
+
+-- Задача 12: Да се напише функция, която приема две матрици и комбинира елементите на еднакви позиции
+combineMatching :: PotionMatrix -> PotionMatrix -> PotionMatrix
+combineMatching m1 m2 = zipWith (zipWith combineTwo) m1 m2  
+
+-- Задача 13: Да се напише функция, която приема матрица и връща един комбиниран Potion
+combineMatrix :: PotionMatrix -> Potion
+combineMatrix m = combinePotions $ map combinePotions m
+
+-- Задача 14: Да се напише функция, която приема матрица и я транспонира
+transposeMatrix :: PotionMatrix -> PotionMatrix
+transposeMatrix [] = []
+transposeMatrix [[]] = []
+transposeMatrix m = map head m : map tail m
 
 
 
